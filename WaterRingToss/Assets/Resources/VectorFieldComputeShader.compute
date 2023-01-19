@@ -1,0 +1,47 @@
+#pragma kernel CSMain
+
+RWStructuredBuffer<float3> vectorField;
+int3 fieldDimensions;
+int vectorsCount;
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint3 vPos = id;
+    // get current v index
+    int vIndex = vPos.x * (fieldDimensions.y * fieldDimensions.z) + vPos.y * fieldDimensions.z + vPos.z;
+
+    // get neighbors vectors
+    float3 summVector = float3(0, 0, 0);
+    float neighborCount = 0;
+
+    for (int i=0; i<27; i++)
+    {
+        if (i==13)
+            continue;
+
+        int x = i / 9;
+        int y = (i - (x * 9)) / 3;
+        int z = i % 3;
+
+        int3 neighborPos = int3(vPos.x - x, vPos.y - y, vPos.z - z);
+
+        int neighborIndex = neighborPos.x * (fieldDimensions.y * fieldDimensions.z) + neighborPos.y * fieldDimensions.z + neighborPos.z;
+        if ( (neighborIndex > vectorsCount) || (neighborIndex < 0) )
+            continue;
+
+        summVector += vectorField[neighborIndex];
+        neighborCount += 1;
+    }
+
+    // average neighbors
+    summVector = summVector * (1.0f/(float)neighborCount);
+    
+    float3 selfVector = vectorField[vIndex];
+
+    selfVector *= 0.995f;
+    float3 resultVector = selfVector + (summVector - selfVector) * 0.01f;
+
+    // set vector to new
+    vectorField[vIndex] = resultVector;
+}
