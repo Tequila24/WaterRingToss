@@ -134,7 +134,7 @@ GameObject:
   - component: {fileID: 18319057}
   - component: {fileID: 18319056}
   m_Layer: 0
-  m_Name: Field
+  m_Name: VectorField
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -152,10 +152,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef408ab3a182d49c49fff58947f6fb4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  vectorForce: 35
+  vectorForce: 12
   origin: {x: -2.25, y: -3, z: -1}
-  size: {x: 4.7, y: 6.2, z: 2}
-  dimensions: {x: 10, y: 20, z: 5}
+  size: {x: 4.5, y: 6, z: 2}
+  density: 0.2
   drawField: 1
 --- !u!4 &18319057
 Transform:
@@ -1160,9 +1160,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1008418618}
+  - component: {fileID: 1008418619}
   m_Layer: 0
-  m_Name: Pulser
-  m_TagString: Untagged
+  m_Name: Jet
+  m_TagString: Jet
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -1175,13 +1176,26 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1008418617}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.4, y: -3, z: 0}
+  m_LocalPosition: {x: -1.43, y: -2.73, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 7
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!135 &1008418619
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1008418617}
+  m_Material: {fileID: 0}
+  m_IsTrigger: 1
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Center: {x: 0, y: 0, z: 0}
 --- !u!4 &1019581574 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2935862894702311511, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}

@@ -2,46 +2,97 @@
 
 RWStructuredBuffer<float3> vectorField;
 int3 fieldDimensions;
+float3 positionStep;
 int vectorsCount;
+
+bool isJetActive;
+float3 jetLocalPosition;
+float jetRadius;
+float3 jetForce;
+
 
 [numthreads(1,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    uint3 vPos = id;
+    uint3 vPos = (id);
     // get current v index
     int vIndex = vPos.x * (fieldDimensions.y * fieldDimensions.z) + vPos.y * fieldDimensions.z + vPos.z;
 
-    // get neighbors vectors
-    float3 summVector = float3(0, 0, 0);
-    float neighborCount = 0;
-
-    for (int i=0; i<27; i++)
-    {
-        if (i==13)
-            continue;
-
-        int x = i / 9;
-        int y = (i - (x * 9)) / 3;
-        int z = i % 3;
-
-        int3 neighborPos = int3(vPos.x - x, vPos.y - y, vPos.z - z);
-
-        int neighborIndex = neighborPos.x * (fieldDimensions.y * fieldDimensions.z) + neighborPos.y * fieldDimensions.z + neighborPos.z;
-        if ( (neighborIndex > vectorsCount) || (neighborIndex < 0) )
-            continue;
-
-        summVector += vectorField[neighborIndex];
-        neighborCount += 1;
-    }
-
-    // average neighbors
-    summVector = summVector * (1.0f/(float)neighborCount);
+    float3 localToJet = float3( positionStep.x * 0.5f + vPos.x * positionStep.x,
+                                positionStep.y * 0.5f + vPos.y * positionStep.y,
+                                positionStep.z * 0.5f + vPos.z * positionStep.z );
+    localToJet = jetLocalPosition - localToJet;
+    float distanceToJet = length(localToJet);
     
-    float3 selfVector = vectorField[vIndex];
+    // Vector affected by jet
+    if ( (distanceToJet < jetRadius)  && isJetActive ) 
+    {
+        float multiplier = distanceToJet / jetRadius;
+        
+        float3 summVector = (normalize(localToJet * -1) * length(jetForce)) * 0.5f * multiplier;
 
-    selfVector *= 0.995f;
-    float3 resultVector = selfVector + (summVector - selfVector) * 0.01f;
+        vectorField[vIndex] = summVector;
+        return;
+    } 
+    else 
+    // Vector not affected by jet
+    {
+        // get neighbors vectors
+        float3 summVector = float3(0, 0, 0);
+        float neighborCount = 0;
 
-    // set vector to new
-    vectorField[vIndex] = resultVector;
+        for (int i=0; i<27; i++)
+        {
+            if (i==13)
+                i++;
+
+            int x = i / 9;
+            int y = (i - (x * 9)) / 3;
+            int z = i % 3;
+
+            int3 neighborPos = int3(vPos.x + (x-1), vPos.y + (y-1), vPos.z + (z-1));
+
+            if ( (neighborPos.x<0) || (neighborPos.x>=fieldDimensions.x) ||
+                 (neighborPos.y<0) || (neighborPos.y>=fieldDimensions.y) ||
+                 (neighborPos.z<0) || (neighborPos.z>=fieldDimensions.z) ) {
+                continue;
+            } else {
+                int neighborIndex = (neighborPos.x * (fieldDimensions.y * fieldDimensions.z)) + (neighborPos.y * fieldDimensions.z) + neighborPos.z;
+                summVector += vectorField[neighborIndex];
+                neighborCount += 1;
+            }
+        }
+
+
+        // average neighbors
+        summVector = summVector * (1.0f/(float)neighborCount);
+
+        float3 selfVector = vectorField[vIndex];
+
+        selfVector *= 0.997f;
+        float3 resultVector = selfVector + (summVector - selfVector) * 0.5f;
+
+
+        // flip vector, if at edge
+        // x
+        if ( (vPos.x == 0) && (resultVector.x < 0) )
+            resultVector.x *= -0.6;
+        if ( (vPos.x == (fieldDimensions.x-1)) && (resultVector.x > 0) )
+            resultVector.x *= -0.6;
+        // y
+        if ( (vPos.y == 0) && (resultVector.y < 0) )
+            resultVector.y *= -0.6;
+        if ( (vPos.y == (fieldDimensions.y-1)) && (resultVector.y > 0) )
+            resultVector.y *= -0.6;
+        // z
+        if ( (vPos.z == 0) && (resultVector.z < 0) )
+            resultVector.y *= -0.6;
+        if ( (vPos.z == (fieldDimensions.z-1)) && (resultVector.z > 0) )
+            resultVector.z *= -0.6;
+
+
+
+        // set vector to new
+        vectorField[vIndex] = resultVector;
+    }
 }

@@ -12,6 +12,7 @@ public class VectorField : MonoBehaviour
     [SerializeField]
     Vector3 size;
     [SerializeField]
+    float density = 1;
     Vector3Int dimensions;
 
     [SerializeField]
@@ -31,17 +32,19 @@ public class VectorField : MonoBehaviour
 
     List<Ring> rings = new List<Ring>();
 
-    [SerializeField]
-    static float updateTimeout = 1f;
-    float fieldUpdateTimeout = updateTimeout;
+    List<SphereCollider> jets = new List<SphereCollider>();
 
 //================================================================================================================================
 
+
     void Start()
     {
-        CreateVectorField(origin, size, dimensions);
+        Vector3Int newDimensions = new Vector3Int( (int)Mathf.Floor(size.x / density), (int)Mathf.Floor(size.y / density), (int)Mathf.Floor(size.z / density) );
+        CreateVectorField(origin, size, newDimensions);
 
         FindAndSaveRings();
+
+        FindAndSaveJets();
     }
 
 
@@ -57,6 +60,18 @@ public class VectorField : MonoBehaviour
         }
 
         Debug.Log(string.Format("{0} rings found", rings.Count));
+    }
+
+    
+    void FindAndSaveJets()
+    {
+        GameObject[] jetsObjects = GameObject.FindGameObjectsWithTag("Jet");
+        foreach(GameObject jetObject in jetsObjects) 
+        {
+            SphereCollider coll = jetObject.GetComponent<SphereCollider>();
+            if (coll != null)
+                jets.Add(coll);
+        }
     }
 
 
@@ -114,13 +129,9 @@ public class VectorField : MonoBehaviour
         {
             Vector3 vOrigin = origin + halfStep + new Vector3(index.x * posStep.x, index.y * posStep.y, index.z * posStep.z);
 
-            if (float.IsNaN(v.x) || float.IsNaN(v.y) || float.IsNaN(v.z)) {
-                Gizmos.DrawSphere(vOrigin, 0.5f);
-            }
-
             if (v.sqrMagnitude <= 0.01f) {
                 Gizmos.color = Color.red;
-                Gizmos.DrawSphere(vOrigin, 0.01f);
+                Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
             } else {
                 Gizmos.color = new Color(Mathf.Abs(v.normalized.x), Mathf.Abs(v.normalized.y), Mathf.Abs(v.normalized.z));
                 Gizmos.DrawRay(vOrigin, v);
@@ -150,14 +161,8 @@ public class VectorField : MonoBehaviour
     Vector3 GetEffectorAtPoint(Vector3 point)
     {
         Vector3 effectVector = Vector3.zero;
-
-        point -= origin;
-        point += posStep * 0.5f;
-        point = new Vector3( Mathf.Clamp(point.x / posStep.x, 0, dimensions.x),
-                             Mathf.Clamp(point.y / posStep.y, 0, dimensions.y),
-                             Mathf.Clamp(point.z / posStep.z, 0, dimensions.z) );
         
-        Vector3Int vPos = new Vector3Int( (int)Mathf.Floor(point.x), (int)Mathf.Floor(point.y), (int)Mathf.Floor(point.z) );
+        Vector3Int vPos = GetFieldPosForPoint(point);
 
         int index = vPos.x * (dimensions.y * dimensions.z) + vPos.y * dimensions.z + vPos.z;
         
@@ -193,6 +198,27 @@ public class VectorField : MonoBehaviour
     }
 
 
+    Vector3Int GetFieldPosForPoint(Vector3 position)
+    {
+        Vector3Int vecPos = Vector3Int.zero;
+
+        // local coord
+        position -= origin;
+
+        // half-step to center
+        position += posStep * 0.5f;
+
+        //clamp position to field size
+        position = new Vector3( Mathf.Clamp(position.x / posStep.x, 0, dimensions.x-1),
+                             Mathf.Clamp(position.y / posStep.y, 0, dimensions.y-1),
+                             Mathf.Clamp(position.z / posStep.z, 0, dimensions.z-1) );
+
+        vecPos = new Vector3Int( (int)Mathf.Floor(position.x), (int)Mathf.Floor(position.y), (int)Mathf.Floor(position.z) );
+
+        return vecPos;
+    }
+
+
     bool IsValidIndex(Vector3Int ind)
     {
         if ( (ind.x < 0) || (ind.x >= dimensions.x) )
@@ -214,13 +240,10 @@ public class VectorField : MonoBehaviour
 
         ProcessVectorField();
 
-        fieldUpdateTimeout -= Time.deltaTime;
-        if (fieldUpdateTimeout <= 0) 
-        {
-            Debug.Log( vectors[0] + " " + GetVectorAtIndex(new Vector3Int(0,1,1)) );
-            fieldUpdateTimeout = updateTimeout;
-        }
+        /*if (Input.GetKey(KeyCode.Space))
+            ProcessJets();*/
     }
+
 
     void ApplyRingsForces()
     {
@@ -242,44 +265,6 @@ public class VectorField : MonoBehaviour
 
     void ProcessVectorField()
     {
-        /*Vector3Int index = Vector3Int.zero;
-        for (int v=0; v<vectors.Count; v++)
-        {
-            // collect neighbors
-            List<Vector3> neighbors = new List<Vector3>();
-            for(int i=0; i<27; i++) 
-            {
-                if (i == 14)
-                    continue;
-
-                int x = i / 9;
-                int y = (i - (x * 9)) / 3;
-                int z = i % 3;
-                Vector3Int neighborDeltaIndex = new Vector3Int(x-1, y-1, z-1);
-                Vector3Int neighborIndex = index + neighborDeltaIndex;
-
-                if (IsValidIndex(neighborIndex)) {
-                    neighbors.Add(GetVectorAtIndex(neighborIndex));
-                }
-            }
-
-            Vector3 summVector = Vector3.zero;
-            foreach(Vector3 neighbor in neighbors)
-                summVector += neighbor;
-            
-            SetVectorAtIndex(index, Vector3.Slerp(GetVectorAtIndex(index), (summVector / neighbors.Count), 0.5f));
-
-            index.z++;
-            if (index.z >= dimensions.z) {
-                index.z = 0;
-                index.y++;
-            }
-            if (index.y >= dimensions.y) {
-                index.y = 0;
-                index.x++;
-            }
-        }*/
-
         int dataCount = vectors.Count;
 
         ComputeShader cShader = Resources.Load<ComputeShader>("VectorFieldComputeShader");
@@ -287,9 +272,15 @@ public class VectorField : MonoBehaviour
         ComputeBuffer vectorsBuffer = new ComputeBuffer(dataCount, sizeof(float)*3);
         vectorsBuffer.SetData(vectors);
 
-        cShader.SetInts("fieldDimensions", new int[] {dimensions.x, dimensions.y, dimensions.z});
-        cShader.SetInt("vectorsCount", dataCount);
         cShader.SetBuffer(0, "vectorField", vectorsBuffer);
+        cShader.SetInts("fieldDimensions", new int[] {dimensions.x, dimensions.y, dimensions.z});
+        cShader.SetVector("positionStep", posStep);
+        cShader.SetInt("vectorsCount", dataCount);
+
+        cShader.SetVector("jetLocalPosition", (jets[0].transform.position - origin));
+        cShader.SetFloat("jetRadius", jets[0].radius);
+        cShader.SetVector("jetForce", Vector3.up * vectorForce);
+        cShader.SetBool("isJetActive", Input.GetKey(KeyCode.Space));
         
         Vector3[] data = new Vector3[dataCount];
         
@@ -302,4 +293,15 @@ public class VectorField : MonoBehaviour
     }
 
 
+    void ProcessJets()
+    {
+        foreach (SphereCollider jet in jets)
+        {
+            // get jet position in vector field
+            Vector3Int jetFieldPosition = GetFieldPosForPoint(jet.transform.position);
+
+            // set new vector for position
+            SetVectorAtIndex(jetFieldPosition, Vector3.one * 1000);
+        }
+    }
 }
