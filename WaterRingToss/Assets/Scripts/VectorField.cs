@@ -131,7 +131,7 @@ public class VectorField : MonoBehaviour
 
             if (v.sqrMagnitude <= 0.01f) {
                 Gizmos.color = Color.red;
-                Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
+                //Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
             } else {
                 Gizmos.color = new Color(Mathf.Abs(v.normalized.x), Mathf.Abs(v.normalized.y), Mathf.Abs(v.normalized.z));
                 Gizmos.DrawRay(vOrigin, v);
