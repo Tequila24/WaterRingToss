@@ -103,7 +103,12 @@ public class VectorField : MonoBehaviour
             Vector3 centerPosVector = new Vector3(index.x + halfDimension.x, index.y + halfDimension.y, (index.z + halfDimension.z));
             Vector3 depthVector = Vector3.forward;
 
-            pressureField.Add( (dimensions.y - index.y) / (float)dimensions.y * 500.0f );
+            // pressureField.Add( (dimensions.y - index.y) / ((float)dimensions.y * 1.1f) * 500.0f );
+            if (index.y < 15) {
+                pressureField.Add( 1 );
+            } else {
+                pressureField.Add( 0 );
+            }
 
             index.z++;
             if (index.z >= dimensions.z) {
@@ -128,18 +133,10 @@ public class VectorField : MonoBehaviour
         {
             Vector3 vOrigin = origin + halfStep + new Vector3(index.x * posStep.x, index.y * posStep.y, index.z * posStep.z);
 
-            if (Mathf.Abs(p) <= 0.0001f) {
-                //Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
-            } else {
-                if (p>0)
-                    Gizmos.color = Color.red;
-                else {
-                    Gizmos.color = Color.cyan;
-                }
-                float p01 = Mathf.Abs(p) / 500.0f * density * 0.5f;
-                Gizmos.DrawCube(vOrigin, new Vector3(p01, p01, p01) );
-            }
-                
+            Gizmos.color = Color.HSVToRGB((1 - p) * 0.65f, 1, 1);
+            Gizmos.DrawCube(vOrigin, new Vector3(   density * 0.2f,
+                                                    density * 0.2f, 
+                                                    density * 0.2f));
 
             index.z++;
             if (index.z >= dimensions.z) {
@@ -282,6 +279,13 @@ public class VectorField : MonoBehaviour
         float[] data = new float[dataCount];    
         newPressureBuffer.GetData(data);
         pressureField = new List<float>(data);
+
+        string strVal = "";
+        for (int i = 0; i < dimensions.z; i++)
+        {
+            strVal += pressureField[i] + " ";
+        }
+        Debug.Log(strVal);
         
         pressureBuffer.Dispose();
         newPressureBuffer.Dispose();
