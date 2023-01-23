@@ -155,7 +155,7 @@ MonoBehaviour:
   vectorForce: 12
   origin: {x: -2.25, y: -3, z: -1}
   size: {x: 4.5, y: 6, z: 2}
-  density: 0.2
+  density: 2
   drawField: 1
 --- !u!4 &18319057
 Transform:
@@ -242,7 +242,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -316,7 +316,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1030,7 +1030,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1281,7 +1281,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1465,7 +1465,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1534,7 +1534,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1603,7 +1603,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
@@ -1708,7 +1708,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3136540849458451372, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}
       propertyPath: m_UseGravity
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 4e57dbe76a7dc4e428061bae8c43040f, type: 3}

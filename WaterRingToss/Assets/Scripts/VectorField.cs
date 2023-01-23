@@ -19,7 +19,7 @@ public class VectorField : MonoBehaviour
     bool drawField = false;
     
     bool inited = false;
-    List<Vector3> vectors;    
+    List<float> pressureField;    
 
     // sim vals
     Vector3 posStep;
@@ -81,7 +81,7 @@ public class VectorField : MonoBehaviour
         size = newSize;
         dimensions = newDimensions;
         int count = dimensions.x * dimensions.y * dimensions.z;
-        vectors = new List<Vector3>(count);
+        pressureField = new List<float>(count);
 
         posStep = new Vector3(size.x / dimensions.x, size.y / dimensions.y, size.z / dimensions.z);
 
@@ -97,14 +97,13 @@ public class VectorField : MonoBehaviour
         Vector3Int index = Vector3Int.zero;
         Vector3 halfDimension = new Vector3(-dimensions.x*0.5f, -dimensions.y*0.5f, -dimensions.z*0.5f);
         Quaternion rotationAdjust = Quaternion.AngleAxis(-40, Vector3.forward);
-        for (int i=0; i < vectors.Capacity; i++)
+        for (int i=0; i < pressureField.Capacity; i++)
         {
             int ind = index.x * (dimensions.y * dimensions.z) + index.y * dimensions.z + index.z;
             Vector3 centerPosVector = new Vector3(index.x + halfDimension.x, index.y + halfDimension.y, (index.z + halfDimension.z));
             Vector3 depthVector = Vector3.forward;
-            Vector3 dirVector = rotationAdjust * Vector3.Cross(centerPosVector, depthVector).normalized;
 
-            vectors.Add( dirVector );
+            pressureField.Add( (dimensions.y - index.y) / (float)dimensions.y * 500.0f );
 
             index.z++;
             if (index.z >= dimensions.z) {
@@ -117,7 +116,7 @@ public class VectorField : MonoBehaviour
             }
         }
 
-        Debug.Log(string.Format("Field {0} {1} {2} generated, {3} vectors created", dimensions.x, dimensions.y, dimensions.z, vectors.Count));
+        Debug.Log(string.Format("Field {0} {1} {2} generated, {3} vectors created", dimensions.x, dimensions.y, dimensions.z, pressureField.Count));
     }
 
 
@@ -125,16 +124,20 @@ public class VectorField : MonoBehaviour
     {
         Vector3Int index = Vector3Int.zero;
         Vector3 halfStep = posStep * 0.5f;
-        foreach (Vector3 v in vectors)
+        foreach (float p in pressureField)
         {
             Vector3 vOrigin = origin + halfStep + new Vector3(index.x * posStep.x, index.y * posStep.y, index.z * posStep.z);
 
-            if (v.sqrMagnitude <= 0.01f) {
-                Gizmos.color = Color.red;
+            if (Mathf.Abs(p) <= 0.0001f) {
                 //Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
             } else {
-                Gizmos.color = new Color(Mathf.Abs(v.normalized.x), Mathf.Abs(v.normalized.y), Mathf.Abs(v.normalized.z));
-                Gizmos.DrawRay(vOrigin, v);
+                if (p>0)
+                    Gizmos.color = Color.red;
+                else {
+                    Gizmos.color = Color.cyan;
+                }
+                float p01 = Mathf.Abs(p) / 500.0f * density * 0.5f;
+                Gizmos.DrawCube(vOrigin, new Vector3(p01, p01, p01) );
             }
                 
 
@@ -158,43 +161,39 @@ public class VectorField : MonoBehaviour
     }
 
 
-    Vector3 GetEffectorAtPoint(Vector3 point)
+    float GetPressureAtPoint(Vector3 point)
     {
-        Vector3 effectVector = Vector3.zero;
-        
         Vector3Int vPos = GetFieldPosForPoint(point);
 
         int index = vPos.x * (dimensions.y * dimensions.z) + vPos.y * dimensions.z + vPos.z;
         
-        if ( (index<0) | (index > vectors.Count) ) {
+        if ( (index<0) | (index > pressureField.Count) ) {
             Debug.Log("BAD INDEX: " + index + " Ind: " + vPos + " Pos: " + point);
-            return effectVector;
+            return 0;
         }
         
-        effectVector = vectors[index];
-
-        return effectVector;
+        return pressureField[index];
     }
 
 
-    Vector3 GetVectorAtIndex(Vector3Int vecPos)
+    float GetPressureAtIndex(Vector3Int vecPos)
     {
         int index = vecPos.x * (dimensions.y * dimensions.z) + vecPos.y * dimensions.z + vecPos.z;
         
-        if ( (index<0) || (index > vectors.Count) ) {
+        if ( (index<0) || (index > pressureField.Count) ) {
             Debug.Log("BAD V POS: " + vecPos);
-            return Vector3.zero;
+            return 0;
         }
 
-        return vectors[index];
+        return pressureField[index];
     }
 
 
-    void SetVectorAtIndex(Vector3Int vecPos, Vector3 vector)
+    void SetPressureAtFieldPos(Vector3Int vecPos, float pressure)
     {
         int index = vecPos.x * (dimensions.y * dimensions.z) + vecPos.y * dimensions.z + vecPos.z;
 
-        vectors[index] = vector;
+        pressureField[index] = pressure;
     }
 
 
@@ -236,12 +235,9 @@ public class VectorField : MonoBehaviour
 
     void FixedUpdate()
     {
-        ApplyRingsForces();
+        //ApplyRingsForces();
 
-        ProcessVectorField();
-
-        /*if (Input.GetKey(KeyCode.Space))
-            ProcessJets();*/
+        ProcessPressureField();
     }
 
 
@@ -253,55 +249,41 @@ public class VectorField : MonoBehaviour
 
             foreach(MeshCollider coll in ring.colliders)
             {
-                Vector3 collCenterWorld = coll.bounds.center;
-                Vector3 effector = GetEffectorAtPoint(collCenterWorld);
                 
-                Debug.DrawRay(collCenterWorld, effector, Color.blue, Time.deltaTime);
-                ring.body.AddForceAtPosition(effector * coeff, collCenterWorld);
             }
         }
     }
 
 
-    void ProcessVectorField()
+    void ProcessPressureField()
     {
-        int dataCount = vectors.Count;
+        int dataCount = pressureField.Count;
 
         ComputeShader cShader = Resources.Load<ComputeShader>("VectorFieldComputeShader");
         
-        ComputeBuffer vectorsBuffer = new ComputeBuffer(dataCount, sizeof(float)*3);
-        vectorsBuffer.SetData(vectors);
+        ComputeBuffer pressureBuffer = new ComputeBuffer(dataCount, sizeof(float));
+        ComputeBuffer newPressureBuffer = new ComputeBuffer(dataCount, sizeof(float));
+        pressureBuffer.SetData(pressureField);
 
-        cShader.SetBuffer(0, "vectorField", vectorsBuffer);
+        cShader.SetBuffer(0, "pressureField", pressureBuffer);
+        cShader.SetBuffer(0, "newPressureField", newPressureBuffer);
         cShader.SetInts("fieldDimensions", new int[] {dimensions.x, dimensions.y, dimensions.z});
         cShader.SetVector("positionStep", posStep);
-        cShader.SetInt("vectorsCount", dataCount);
 
         cShader.SetVector("jetLocalPosition", (jets[0].transform.position - origin));
         cShader.SetFloat("jetRadius", jets[0].radius);
         cShader.SetVector("jetForce", Vector3.up * vectorForce);
         cShader.SetBool("isJetActive", Input.GetKey(KeyCode.Space));
-        
-        Vector3[] data = new Vector3[dataCount];
+    
         
         cShader.Dispatch(0, dimensions.x, dimensions.y, dimensions.z);
+
+
+        float[] data = new float[dataCount];    
+        newPressureBuffer.GetData(data);
+        pressureField = new List<float>(data);
         
-        vectorsBuffer.GetData(data);
-        vectorsBuffer.Dispose();
-
-        vectors = new List<Vector3>(data);
-    }
-
-
-    void ProcessJets()
-    {
-        foreach (SphereCollider jet in jets)
-        {
-            // get jet position in vector field
-            Vector3Int jetFieldPosition = GetFieldPosForPoint(jet.transform.position);
-
-            // set new vector for position
-            SetVectorAtIndex(jetFieldPosition, Vector3.one * 1000);
-        }
+        pressureBuffer.Dispose();
+        newPressureBuffer.Dispose();
     }
 }

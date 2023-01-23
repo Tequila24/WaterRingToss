@@ -1,15 +1,17 @@
 #pragma kernel CSMain
 
-RWStructuredBuffer<float3> vectorField;
+RWStructuredBuffer<float> pressureField;
+RWStructuredBuffer<float> newPressureField;
+
 int3 fieldDimensions;
 float3 positionStep;
-int vectorsCount;
 
 bool isJetActive;
 float3 jetLocalPosition;
 float jetRadius;
 float3 jetForce;
 
+// static float pressureTransferSpeed = 0.5f;
 
 [numthreads(1,1,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
@@ -17,9 +19,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     // get current v index
     int selfIndex = id.x * (fieldDimensions.y * fieldDimensions.z) + id.y * fieldDimensions.z + id.z;
     // local vector pos
-    float3 selfPos = float3(    positionStep.x * 0.5f + id.x * positionStep.x,
-                                positionStep.y * 0.5f + id.y * positionStep.y,
-                                positionStep.z * 0.5f + id.z * positionStep.z );
+    float3 selfPos = float3(positionStep.x * 0.5f + id.x * positionStep.x,
+                            positionStep.y * 0.5f + id.y * positionStep.y,
+                            positionStep.z * 0.5f + id.z * positionStep.z );
 
 
     // position local to jet
@@ -32,35 +34,16 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     if ( (distanceToJet < jetRadius)  && isJetActive ) 
     {
         float multiplier = distanceToJet / jetRadius;
-        
-        float3 summVector = jetForce * multiplier;//(normalize(localToJet * -1) * length(jetForce)) * 0.5f * multiplier;
-
-        vectorField[selfIndex] = summVector;
     } 
     
 
 
     // Vector not affected by jet
     {
-        // flip vector, if at edge
-        // x
-        float3 self = vectorField[selfIndex];
+        float self = pressureField[selfIndex];
 
-        if ( (id.x == 0) && (self.x < 0) )
-            self.x *= -0.6;
-        if ( (id.x >= (fieldDimensions.x-1)) && (self.x > 0) )
-            self.x *= -0.6;
-        // y
-        if ( (id.y == 0) && (self.y < 0) )
-            self.y *= -0.6;
-        if ( (id.y >= (fieldDimensions.y-1)) && (self.y > 0) )
-            self.y *= -0.6;
-        // z
-        if ( (id.z == 0) && (self.z < 0) )
-            self.y *= -0.6;
-        if ( (id.z >= (fieldDimensions.z-1)) && (self.z > 0) )
-            self.z *= -0.6;
-
+        int neighbors[9];
+        uint neighborCount = 0;
 
         for (int i=0; i<27; i++)
         {
@@ -79,29 +62,22 @@ void CSMain (uint3 id : SV_DispatchThreadID)
                 continue;
 
             int neighborIndex = (neighborFieldPos.x * (fieldDimensions.y * fieldDimensions.z)) + (neighborFieldPos.y * fieldDimensions.z) + neighborFieldPos.z;
+            float neighborSelf = pressureField[neighborIndex];
 
-            float3 neighborRelativePos = float3( positionStep.x * 0.5f + neighborFieldPos.x * positionStep.x,
-                                                 positionStep.x * 0.5f + neighborFieldPos.y * positionStep.y,
-                                                 positionStep.x * 0.5f + neighborFieldPos.z * positionStep.z ) - selfPos;
-
-
-            float dotProduct = dot(self, normalize(neighborRelativePos));
-            // if ( (dotProduct > 0) )
-            // {
-                float3 projectedSelf = dotProduct * normalize(neighborRelativePos);
-                
-                float3 neighborSelf = vectorField[neighborIndex];
-                
-                float3 summVector = neighborSelf + (projectedSelf - neighborSelf) * 0.001f;
-                
-                vectorField[neighborIndex] = summVector;
-                
-                //self = self - projectedSelf;
-            // }
+            if (neighborSelf < self) {
+                neighbors[neighborCount] = neighborIndex;
+                neighborCount++;
+            }
         }
 
-        //vectorField[selfIndex] = self * 0.999f;
-        
-        return;
+        if (neighborCount > 0) {
+            for(uint n=0; n<neighborCount; n++) {
+
+                
+            }
+        }
+
+        pressureField[selfIndex] = 124;
+        newPressureField[selfIndex] = 125;
     }
 }
