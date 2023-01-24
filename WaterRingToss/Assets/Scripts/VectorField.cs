@@ -329,6 +329,13 @@ public class VectorField : MonoBehaviour
         
         vectorsBuffer.Dispose();
         newVectorsBuffer.Dispose();
+
+        string strVal = "";
+        for (int i = 0; i < dimensions.z; i++)
+        {
+            strVal += GetVectorAtIndex(new Vector3Int(2, 2, i)) + " ";
+        }
+        Debug.Log(strVal);
     }
 
 

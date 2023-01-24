@@ -11,8 +11,8 @@ float3 jetLocalPosition;
 float jetRadius;
 float3 jetForce;
 
-static float waveTransferRate = 0.01f;
-static float waveRelaxRate = 0.95f;
+static float waveTransferRate = 0.51f;
+static float waveRelaxRate = 0.99f;
 
 
 float3 FlipEdge(uint3 id, float3 self);
@@ -42,7 +42,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         
         float3 summVector = jetForce * multiplier;//(normalize(localToJet * -1) * length(jetForce)) * 0.5f * multiplier;
 
-        vectorField[selfIndex] = summVector;
+        newVectorField[selfIndex] = summVector;
+        
+        return;
     } 
     
 
@@ -53,8 +55,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         // x
         float3 self = vectorField[selfIndex];
 
-        float3 summProjectedNeigh = float3(0,0,0);
-        float neighCounter = 0;
+        float3 summAddProjectedNeigh = float3(0,0,0);
+        float neighAddCounter = 0;
+
+        float3 summSubProjectedNeigh = float3(0,0,0);
+        float neighSubCounter = 0;
 
         for (int i=0; i<27; i++)
         {
@@ -78,35 +83,53 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             float3 neighborPos = float3(    positionStep.x * 0.5f + neighborFieldPos.x * positionStep.x,
                                             positionStep.x * 0.5f + neighborFieldPos.y * positionStep.y,
                                             positionStep.x * 0.5f + neighborFieldPos.z * positionStep.z );
-            float3 relativePosNorm = normalize(selfPos - neighborPos);
-
+            
             // if neighbor is aimed at self
-            float dotProduct = dot(neighSelf, relativePosNorm);
-            if ( (dotProduct > 0) )
+            float3 posNeighToSelfNorm = normalize(selfPos - neighborPos);
+            float dotProductN = dot(neighSelf, posNeighToSelfNorm);
+            if ( (dotProductN > 0) )
             {
-                float3 projectedNeigh = dotProduct * relativePosNorm;
-                summProjectedNeigh += projectedNeigh;
-                neighCounter += 1;
+                float3 projectedNeigh = dotProductN * posNeighToSelfNorm;
+                summAddProjectedNeigh += projectedNeigh;
+                neighAddCounter += 1;
+            }
+
+            // if self is aimed at neighbor
+            float3 posSelfToNeighfNorm = normalize(neighborPos - selfPos);
+            float dotProductS = dot(self, posSelfToNeighfNorm);
+            if ( (dotProductS > 0) )
+            {
+                float3 projectedSelf = dotProductS * posSelfToNeighfNorm;
+                summSubProjectedNeigh += projectedSelf;
+                neighSubCounter += 1;
             }
         }
 
-        float3 diff = float3(0,0,0);
-        if (neighCounter > 0) {
-            float3 averageProjectedNeigh = summProjectedNeigh;
-            diff = averageProjectedNeigh * waveTransferRate;
+        float3 averageAdd = float3(0,0,0);
+        if (neighAddCounter > 0)
+        {
+            averageAdd = summAddProjectedNeigh / neighAddCounter;
         }
+
+        float3 averageSub = float3(0,0,0);
+        if (neighSubCounter > 0)
+        {
+            averageSub = summSubProjectedNeigh / neighSubCounter;
+        }
+
+        float3 diff = (averageAdd - averageSub) * waveTransferRate;
+            
         float3 result = self + diff;
 
         result = FlipEdge(id, result);
                 
         newVectorField[selfIndex] = result * waveRelaxRate;
-
     }
 }
 
 float3 FlipEdge(uint3 id, float3 self)
 {
-    float revMult = -0.999f;
+    float revMult = -0.9f;
 
     //x
     if (((id.x == 0) && (self.x < 0)) ||
