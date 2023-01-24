@@ -101,10 +101,10 @@ public class VectorField : MonoBehaviour
         {
             int ind = index.x * (dimensions.y * dimensions.z) + index.y * dimensions.z + index.z;
             Vector3 centerPosVector = new Vector3(index.x + halfDimension.x, index.y + halfDimension.y, (index.z + halfDimension.z));
-            Vector3 depthVector = Vector3.forward;
-            Vector3 dirVector = rotationAdjust * Vector3.Cross(centerPosVector, depthVector).normalized;
+            //Vector3 depthVector = Vector3.forward;
+            //Vector3 dirVector = rotationAdjust * Vector3.Cross(centerPosVector, depthVector).normalized;
 
-            vectors.Add( dirVector );
+            vectors.Add( Vector3.zero );
 
             index.z++;
             if (index.z >= dimensions.z) {
@@ -121,6 +121,15 @@ public class VectorField : MonoBehaviour
     }
 
 
+    void ResetField()
+    {
+        for (int i=0; i < vectors.Count; i++)
+        {
+            vectors[i] = Vector3.zero;
+        }
+    }
+
+
     void Visualize()
     {
         Vector3Int index = Vector3Int.zero;
@@ -129,14 +138,21 @@ public class VectorField : MonoBehaviour
         {
             Vector3 vOrigin = origin + halfStep + new Vector3(index.x * posStep.x, index.y * posStep.y, index.z * posStep.z);
 
-            if (v.sqrMagnitude <= 0.01f) {
-                Gizmos.color = Color.red;
-                //Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
+            if ( float.IsNaN(v.x) || float.IsNaN(v.x) || float.IsNaN(v.x) ) {
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawCube(vOrigin, Vector3.one * density * 0.5f);
             } else {
-                Gizmos.color = new Color(Mathf.Abs(v.normalized.x), Mathf.Abs(v.normalized.y), Mathf.Abs(v.normalized.z));
-                Gizmos.DrawRay(vOrigin, v);
-            }
+
+                if (v.sqrMagnitude <= 0.001f) {
+                    Gizmos.color = Color.red;
+                    Gizmos.DrawCube(vOrigin, Vector3.one * 0.01f);
+                } else {
+                    Gizmos.color = new Color(Mathf.Abs(v.normalized.x), Mathf.Abs(v.normalized.y), Mathf.Abs(v.normalized.z));
+                    Gizmos.DrawRay(vOrigin, v * density);
+                }
                 
+            }
+
 
             index.z++;
             if (index.z >= dimensions.z) {
@@ -210,8 +226,8 @@ public class VectorField : MonoBehaviour
 
         //clamp position to field size
         position = new Vector3( Mathf.Clamp(position.x / posStep.x, 0, dimensions.x-1),
-                             Mathf.Clamp(position.y / posStep.y, 0, dimensions.y-1),
-                             Mathf.Clamp(position.z / posStep.z, 0, dimensions.z-1) );
+                                Mathf.Clamp(position.y / posStep.y, 0, dimensions.y-1),
+                                Mathf.Clamp(position.z / posStep.z, 0, dimensions.z-1) );
 
         vecPos = new Vector3Int( (int)Mathf.Floor(position.x), (int)Mathf.Floor(position.y), (int)Mathf.Floor(position.z) );
 
@@ -240,8 +256,29 @@ public class VectorField : MonoBehaviour
 
         ProcessVectorField();
 
-        /*if (Input.GetKey(KeyCode.Space))
-            ProcessJets();*/
+        if (Input.GetKey(KeyCode.Alpha1))
+            ResetField();
+        
+    }
+
+    
+    void OnGUI()
+    {
+        if (Input.GetKeyDown(KeyCode.LeftArrow))
+            Physics.gravity = new Vector3(-10, 0, 0);
+        
+        if (Input.GetKeyDown(KeyCode.RightArrow))
+            Physics.gravity = new Vector3(10, 0, 0);
+
+        if (Input.GetKeyDown(KeyCode.UpArrow))
+            Physics.gravity = new Vector3(0, 0, 10);
+        
+        if (Input.GetKeyDown(KeyCode.DownArrow))
+            Physics.gravity = new Vector3(0, 0, -10);
+
+        if ( Input.GetKeyUp(KeyCode.LeftArrow) || Input.GetKeyUp(KeyCode.RightArrow) ||
+             Input.GetKeyUp(KeyCode.UpArrow) || Input.GetKeyUp(KeyCode.DownArrow) )
+            Physics.gravity = new Vector3(0, -9.81f, 0);
     }
 
 
@@ -270,9 +307,11 @@ public class VectorField : MonoBehaviour
         ComputeShader cShader = Resources.Load<ComputeShader>("VectorFieldComputeShader");
         
         ComputeBuffer vectorsBuffer = new ComputeBuffer(dataCount, sizeof(float)*3);
+        ComputeBuffer newVectorsBuffer = new ComputeBuffer(dataCount, sizeof(float)*3);
         vectorsBuffer.SetData(vectors);
 
         cShader.SetBuffer(0, "vectorField", vectorsBuffer);
+        cShader.SetBuffer(0, "newVectorField", newVectorsBuffer);
         cShader.SetInts("fieldDimensions", new int[] {dimensions.x, dimensions.y, dimensions.z});
         cShader.SetVector("positionStep", posStep);
         cShader.SetInt("vectorsCount", dataCount);
@@ -281,15 +320,15 @@ public class VectorField : MonoBehaviour
         cShader.SetFloat("jetRadius", jets[0].radius);
         cShader.SetVector("jetForce", Vector3.up * vectorForce);
         cShader.SetBool("isJetActive", Input.GetKey(KeyCode.Space));
-        
-        Vector3[] data = new Vector3[dataCount];
-        
+
         cShader.Dispatch(0, dimensions.x, dimensions.y, dimensions.z);
         
-        vectorsBuffer.GetData(data);
-        vectorsBuffer.Dispose();
-
+        Vector3[] data = new Vector3[dataCount];
+        newVectorsBuffer.GetData(data);
         vectors = new List<Vector3>(data);
+        
+        vectorsBuffer.Dispose();
+        newVectorsBuffer.Dispose();
     }
 
 

@@ -1,14 +1,21 @@
 #pragma kernel CSMain
 
 RWStructuredBuffer<float3> vectorField;
+RWStructuredBuffer<float3> newVectorField;
+
 int3 fieldDimensions;
 float3 positionStep;
-int vectorsCount;
 
 bool isJetActive;
 float3 jetLocalPosition;
 float jetRadius;
 float3 jetForce;
+
+static float waveTransferRate = 0.01f;
+static float waveRelaxRate = 0.95f;
+
+
+float3 FlipEdge(uint3 id, float3 self);
 
 
 [numthreads(1,1,1)]
@@ -46,21 +53,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         // x
         float3 self = vectorField[selfIndex];
 
-        if ( (id.x == 0) && (self.x < 0) )
-            self.x *= -0.6;
-        if ( (id.x >= (fieldDimensions.x-1)) && (self.x > 0) )
-            self.x *= -0.6;
-        // y
-        if ( (id.y == 0) && (self.y < 0) )
-            self.y *= -0.6;
-        if ( (id.y >= (fieldDimensions.y-1)) && (self.y > 0) )
-            self.y *= -0.6;
-        // z
-        if ( (id.z == 0) && (self.z < 0) )
-            self.y *= -0.6;
-        if ( (id.z >= (fieldDimensions.z-1)) && (self.z > 0) )
-            self.z *= -0.6;
-
+        float3 summProjectedNeigh = float3(0,0,0);
+        float neighCounter = 0;
 
         for (int i=0; i<27; i++)
         {
@@ -73,35 +67,62 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             int z = i % 3;
             int3 neighborFieldPos = int3(id.x + (x-1), id.y + (y-1), id.z + (z-1));
 
-            if ( (neighborFieldPos.x<0) || (neighborFieldPos.x>fieldDimensions.x) ||
-                 (neighborFieldPos.y<0) || (neighborFieldPos.y>fieldDimensions.y) ||
-                 (neighborFieldPos.z<0) || (neighborFieldPos.z>fieldDimensions.z) )
+            if ( (neighborFieldPos.x<0) || (neighborFieldPos.x>=fieldDimensions.x) ||
+                 (neighborFieldPos.y<0) || (neighborFieldPos.y>=fieldDimensions.y) ||
+                 (neighborFieldPos.z<0) || (neighborFieldPos.z>=fieldDimensions.z) )
                 continue;
 
             int neighborIndex = (neighborFieldPos.x * (fieldDimensions.y * fieldDimensions.z)) + (neighborFieldPos.y * fieldDimensions.z) + neighborFieldPos.z;
+            float3 neighSelf = vectorField[neighborIndex];
 
-            float3 neighborRelativePos = float3( positionStep.x * 0.5f + neighborFieldPos.x * positionStep.x,
-                                                 positionStep.x * 0.5f + neighborFieldPos.y * positionStep.y,
-                                                 positionStep.x * 0.5f + neighborFieldPos.z * positionStep.z ) - selfPos;
+            float3 neighborPos = float3(    positionStep.x * 0.5f + neighborFieldPos.x * positionStep.x,
+                                            positionStep.x * 0.5f + neighborFieldPos.y * positionStep.y,
+                                            positionStep.x * 0.5f + neighborFieldPos.z * positionStep.z );
+            float3 relativePosNorm = normalize(selfPos - neighborPos);
 
-
-            float dotProduct = dot(self, normalize(neighborRelativePos));
-            // if ( (dotProduct > 0) )
-            // {
-                float3 projectedSelf = dotProduct * normalize(neighborRelativePos);
-                
-                float3 neighborSelf = vectorField[neighborIndex];
-                
-                float3 summVector = neighborSelf + (projectedSelf - neighborSelf) * 0.001f;
-                
-                vectorField[neighborIndex] = summVector;
-                
-                //self = self - projectedSelf;
-            // }
+            // if neighbor is aimed at self
+            float dotProduct = dot(neighSelf, relativePosNorm);
+            if ( (dotProduct > 0) )
+            {
+                float3 projectedNeigh = dotProduct * relativePosNorm;
+                summProjectedNeigh += projectedNeigh;
+                neighCounter += 1;
+            }
         }
 
-        //vectorField[selfIndex] = self * 0.999f;
-        
-        return;
+        float3 diff = float3(0,0,0);
+        if (neighCounter > 0) {
+            float3 averageProjectedNeigh = summProjectedNeigh;
+            diff = averageProjectedNeigh * waveTransferRate;
+        }
+        float3 result = self + diff;
+
+        result = FlipEdge(id, result);
+                
+        newVectorField[selfIndex] = result * waveRelaxRate;
+
     }
+}
+
+float3 FlipEdge(uint3 id, float3 self)
+{
+    float revMult = -0.999f;
+
+    //x
+    if (((id.x == 0) && (self.x < 0)) ||
+        ((id.x >= (fieldDimensions.x-1)) && (self.x > 0)) )
+        self.x *= revMult;
+
+    // y
+    if (((id.y == 0) && (self.y < 0)) ||
+        ((id.y >= (fieldDimensions.y-1)) && (self.y > 0)) )
+        self.y *= revMult;
+
+    // z
+    if (((id.z == 0) && (self.z < 0)) ||
+        ((id.z >= (fieldDimensions.z-1)) && (self.z > 0)) )
+        self.z *= revMult;
+
+
+    return self;
 }
