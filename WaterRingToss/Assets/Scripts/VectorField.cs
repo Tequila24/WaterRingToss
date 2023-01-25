@@ -7,7 +7,6 @@ public class VectorField : MonoBehaviour
     [SerializeField]
     [Range(0, 100)]
     float vectorForce = 1;
-    [SerializeField]
     Vector3 origin;
     [SerializeField]
     Vector3 size;
@@ -40,7 +39,7 @@ public class VectorField : MonoBehaviour
     void Start()
     {
         Vector3Int newDimensions = new Vector3Int( (int)Mathf.Floor(size.x / density), (int)Mathf.Floor(size.y / density), (int)Mathf.Floor(size.z / density) );
-        CreateVectorField(origin, size, newDimensions);
+        CreateVectorField(this.transform.position, size, newDimensions);
 
         FindAndSaveRings();
 
@@ -330,12 +329,12 @@ public class VectorField : MonoBehaviour
         vectorsBuffer.Dispose();
         newVectorsBuffer.Dispose();
 
-        string strVal = "";
-        for (int i = 0; i < dimensions.z; i++)
-        {
-            strVal += GetVectorAtIndex(new Vector3Int(2, 2, i)) + " ";
-        }
-        Debug.Log(strVal);
+        // string strVal = "";
+        // for (int i = 0; i < dimensions.z; i++)
+        // {
+        //     strVal += GetVectorAtIndex(new Vector3Int(2, 2, i)) + " ";
+        // }
+        // Debug.Log(strVal);
     }
 
 

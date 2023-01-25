@@ -11,8 +11,8 @@ float3 jetLocalPosition;
 float jetRadius;
 float3 jetForce;
 
-static float waveTransferRate = 0.51f;
-static float waveRelaxRate = 0.99f;
+static float waveTransferRate = 0.71f;
+static float waveRelaxRate = 0.98f;
 
 
 float3 FlipEdge(uint3 id, float3 self);
