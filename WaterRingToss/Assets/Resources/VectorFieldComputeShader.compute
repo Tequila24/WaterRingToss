@@ -3,7 +3,7 @@
 RWStructuredBuffer<float3> vectorField;
 RWStructuredBuffer<float3> newVectorField;
 
-int3 fieldDimensions;
+uint3 fieldDimensions;
 float3 positionStep;
 
 bool isJetActive;
@@ -12,10 +12,12 @@ float jetRadius;
 float3 jetForce;
 
 static float waveTransferRate = 0.71f;
-static float waveRelaxRate = 0.98f;
+static float waveRelaxRate = 0.975f;
 
 
 float3 FlipEdge(uint3 id, float3 self);
+float Angle(float3 v1, float3 v2);
+float3x3 AngleAxis3x3(float angle, float3 axis);
 
 
 [numthreads(1,1,1)]
@@ -34,7 +36,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     // distance to jet
     float distanceToJet = length(localToJet);
     
-
     // Vector affected by jet
     if ( (distanceToJet < jetRadius)  && isJetActive ) 
     {
@@ -61,7 +62,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         float3 summSubProjectedNeigh = float3(0,0,0);
         float neighSubCounter = 0;
 
-        for (int i=0; i<27; i++)
+        for (uint i=0; i<27; i++)
         {
             if (i==13)
                 i++;
@@ -72,9 +73,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             int z = i % 3;
             int3 neighborFieldPos = int3(id.x + (x-1), id.y + (y-1), id.z + (z-1));
 
-            if ( (neighborFieldPos.x<0) || (neighborFieldPos.x>=fieldDimensions.x) ||
-                 (neighborFieldPos.y<0) || (neighborFieldPos.y>=fieldDimensions.y) ||
-                 (neighborFieldPos.z<0) || (neighborFieldPos.z>=fieldDimensions.z) )
+            if ( (neighborFieldPos.x < 0) || (neighborFieldPos.x >= (int)fieldDimensions.x) ||
+                 (neighborFieldPos.y < 0) || (neighborFieldPos.y >= (int)fieldDimensions.y) ||
+                 (neighborFieldPos.z < 0) || (neighborFieldPos.z >= (int)fieldDimensions.z) )
                 continue;
 
             int neighborIndex = (neighborFieldPos.x * (fieldDimensions.y * fieldDimensions.z)) + (neighborFieldPos.y * fieldDimensions.z) + neighborFieldPos.z;
@@ -127,9 +128,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     }
 }
 
+// Mirror vector if at the edge of the vector field
 float3 FlipEdge(uint3 id, float3 self)
 {
-    float revMult = -0.9f;
+    float revMult = -0.7f;
 
     //x
     if (((id.x == 0) && (self.x < 0)) ||
@@ -148,4 +150,39 @@ float3 FlipEdge(uint3 id, float3 self)
 
 
     return self;
+}
+
+// Angle between vectors
+float Angle(float3 v1, float3 v2)
+{
+	float dotProduct = dot(v1, v2);
+
+	// Calculate the lengths of V1 and V2
+	float lenV1 = length(v1);
+	float lenV2 = length(v2);
+
+	// Calculate the angle between the vectors in degrees
+    float angle = acos(dotProduct / (lenV1 * lenV2)) * 57.2958f;
+
+	return angle;
+}
+
+// Rotation with angle (in degress) and axis
+float3x3 AngleAxis3x3(float angle, float3 axis)
+{
+    angle = angle * 0.0174533f;
+
+    float c, s;
+    sincos(angle, s, c);
+
+    float t = 1 - c;
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
+
+    return float3x3(
+        t * x * x + c,      t * x * y - s * z,  t * x * z + s * y,
+        t * x * y + s * z,  t * y * y + c,      t * y * z - s * x,
+        t * x * z - s * y,  t * y * z + s * x,  t * z * z + c
+    );
 }

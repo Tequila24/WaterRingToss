@@ -152,7 +152,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef408ab3a182d49c49fff58947f6fb4e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  vectorForce: 11.4
+  vectorForce: 20
   size: {x: 4, y: 7, z: 2}
   density: 0.2
   drawField: 1
