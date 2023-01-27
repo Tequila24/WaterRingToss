@@ -11,8 +11,8 @@ float3 jetLocalPosition;
 float jetRadius;
 float3 jetForce;
 
-static float waveTransferRate = 0.71f;
-static float waveRelaxRate = 0.975f;
+static float waveTransferRate = 0.81f;
+static float waveRelaxRate = 0.985f;
 
 
 float3 FlipEdge(uint3 id, float3 self);
@@ -43,9 +43,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         
         float3 summVector = jetForce * multiplier;//(normalize(localToJet * -1) * length(jetForce)) * 0.5f * multiplier;
 
-        newVectorField[selfIndex] = summVector;
-        
-        return;
+        vectorField[selfIndex] = summVector;
     } 
     
 
@@ -79,30 +77,34 @@ void CSMain (uint3 id : SV_DispatchThreadID)
                 continue;
 
             int neighborIndex = (neighborFieldPos.x * (fieldDimensions.y * fieldDimensions.z)) + (neighborFieldPos.y * fieldDimensions.z) + neighborFieldPos.z;
-            float3 neighSelf = vectorField[neighborIndex];
-
             float3 neighborPos = float3(    positionStep.x * 0.5f + neighborFieldPos.x * positionStep.x,
                                             positionStep.x * 0.5f + neighborFieldPos.y * positionStep.y,
                                             positionStep.x * 0.5f + neighborFieldPos.z * positionStep.z );
-            
-            // if neighbor is aimed at self
-            float3 posNeighToSelfNorm = normalize(selfPos - neighborPos);
-            float dotProductN = dot(neighSelf, posNeighToSelfNorm);
-            if ( (dotProductN > 0) )
-            {
-                float3 projectedNeigh = dotProductN * posNeighToSelfNorm;
-                summAddProjectedNeigh += projectedNeigh;
-                neighAddCounter += 1;
+            float3 neighSelf = vectorField[neighborIndex];
+
+
+            if (any(neighSelf)) {
+                // if neighbor is aimed at self
+                float3 posNeighToSelfNorm = normalize(selfPos - neighborPos);
+                float dotProductN = dot(neighSelf, posNeighToSelfNorm);
+                if ( (dotProductN > 0) )
+                {
+                    float3 projectedNeigh = dotProductN * posNeighToSelfNorm;
+                    summAddProjectedNeigh += projectedNeigh;
+                    neighAddCounter += 1;
+                }
             }
 
-            // if self is aimed at neighbor
-            float3 posSelfToNeighfNorm = normalize(neighborPos - selfPos);
-            float dotProductS = dot(self, posSelfToNeighfNorm);
-            if ( (dotProductS > 0) )
-            {
-                float3 projectedSelf = dotProductS * posSelfToNeighfNorm;
-                summSubProjectedNeigh += projectedSelf;
-                neighSubCounter += 1;
+            if (any(self)) {
+                // if self is aimed at neighbor
+                float3 posSelfToNeighfNorm = normalize(neighborPos - selfPos);
+                float dotProductS = dot(self, posSelfToNeighfNorm);
+                if ( (dotProductS > 0) )
+                {
+                    float3 projectedSelf = dotProductS * posSelfToNeighfNorm;
+                    summSubProjectedNeigh += projectedSelf;
+                    neighSubCounter += 1;
+                }
             }
         }
 
@@ -128,29 +130,51 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     }
 }
 
+
 // Mirror vector if at the edge of the vector field
 float3 FlipEdge(uint3 id, float3 self)
 {
-    float revMult = -0.7f;
+    float reverseMult = -0.99f;
+    float relaxMult = 0.95f;
 
     //x
     if (((id.x == 0) && (self.x < 0)) ||
-        ((id.x >= (fieldDimensions.x-1)) && (self.x > 0)) )
-        self.x *= revMult;
+        ((id.x >= (fieldDimensions.x-1)) && (self.x > 0)) ) 
+        {
+            self.x *= reverseMult;
+            self.y *= relaxMult;
+            self.z *= relaxMult;
+        }
 
     // y
     if (((id.y == 0) && (self.y < 0)) ||
-        ((id.y >= (fieldDimensions.y-1)) && (self.y > 0)) )
-        self.y *= revMult;
+        ((id.y >= (fieldDimensions.y-1)) && (self.y > 0)) ) {
+            self.y *= reverseMult;
+            self.x *= relaxMult;
+            self.z *= relaxMult;
+        }
 
     // z
     if (((id.z == 0) && (self.z < 0)) ||
-        ((id.z >= (fieldDimensions.z-1)) && (self.z > 0)) )
-        self.z *= revMult;
+        ((id.z >= (fieldDimensions.z-1)) && (self.z > 0)) ) {
+            self.z *= reverseMult;
+            self.x *= relaxMult;
+            self.y *= relaxMult;
+        }
 
 
     return self;
 }
+
+
+float3 Project1on2(float3 v1, float3 v2)
+{
+    float3 v2Norm = normalize(v2);
+    float dotProduct = dot(v1, v2Norm);
+    float3 projection = dotProduct * v2Norm;
+    return projection;
+}
+
 
 // Angle between vectors
 float Angle(float3 v1, float3 v2)
@@ -167,10 +191,12 @@ float Angle(float3 v1, float3 v2)
 	return angle;
 }
 
+
 // Rotation with angle (in degress) and axis
 float3x3 AngleAxis3x3(float angle, float3 axis)
 {
-    angle = angle * 0.0174533f;
+    axis = normalize(axis);
+    angle *= 0.0174533f;
 
     float c, s;
     sincos(angle, s, c);
